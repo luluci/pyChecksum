@@ -1,5 +1,4 @@
 import pathlib
-import enum
 
 # http://tool-support.renesas.com/autoupdate/support/onlinehelp/ja-JP/csp/V8.04.00/CS+.chm/Compiler-CCRX.chm/Output/ccrx03c0400y.html
 
@@ -39,7 +38,7 @@ class hex_record:
 		sum = 0
 		for byte in self.record_raw[record_offset.byte_count:record_offset.data+self.byte_count]:
 			sum += byte
-		sum = (-sum & 0xFF)
+		sum = ((sum & 0xFF) ^ 0xFF) + 1
 		# チェックサムチェック
 		if self.checksum == sum:
 			self.enable = True
@@ -180,6 +179,9 @@ class hex:
 		for data in mem:
 			data_sum += data
 		return data_sum
+
+
+
 
 if __name__ == "__main__":
 	path = r"./test_obj/abs_test.hex"
