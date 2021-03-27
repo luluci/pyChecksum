@@ -164,14 +164,25 @@ class hex:
 	def _checksum_sum(self, blank: int, addr_begin: int, addr_end: int) -> int:
 		# メモリ空間を作成する
 		# blankで埋めて初期化
-		mem = [blank] * (addr_end - addr_begin + 1)
+		addr_max = addr_end - addr_begin + 1
+		mem = [blank] * addr_max
 		# 保持しているレコードを展開
 		for addr, record in self.record_dict.items():
+			# record.data使用範囲
+			use_data_begin = 0
+			use_data_end = len(record.data)
 			# 相対アドレス作成
 			rel_addr_begin = addr - addr_begin
 			rel_addr_end = rel_addr_begin + record.byte_count
+			# アドレス範囲チェック
+			if rel_addr_begin < 0:
+				use_data_begin = rel_addr_begin * -1
+				rel_addr_begin = 0
+			if rel_addr_end > addr_max:
+				use_data_end -= rel_addr_end - addr_max
+				rel_addr_end = addr_max
 			# レコードデータのリストを作成
-			mem_record = [data for data in record.data]
+			mem_record = [data for data in record.data[use_data_begin:use_data_end]]
 			# メモリ空間に展開
 			mem[rel_addr_begin:rel_addr_end] = mem_record
 		# メモリ空間の総和計算
@@ -185,6 +196,6 @@ class hex:
 
 if __name__ == "__main__":
 	path = r"./test_obj/abs_test.hex"
-	hex_ = hex(pathlib.Path(path))
-	checksum = hex_.checksum()
+	binary = hex(pathlib.Path(path))
+	checksum = binary.checksum(0xFF, True, None, 0x7FFFE)
 	print(f'checksum: 0x{checksum:02X}')
