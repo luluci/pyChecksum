@@ -1,5 +1,5 @@
 import pathlib
-from hex_text_file import hex_text_file
+from .hex_text_file import hex_text_file
 
 # http://tool-support.renesas.com/autoupdate/support/onlinehelp/ja-JP/csp/V8.04.00/CS+.chm/Compiler-CCRX.chm/Output/ccrx03c0400y.html
 

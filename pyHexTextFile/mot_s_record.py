@@ -1,5 +1,5 @@
 import pathlib
-from hex_text_file import hex_text_file
+from .hex_text_file import hex_text_file
 
 class record_type:
 	class offset:
