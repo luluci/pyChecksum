@@ -1,8 +1,8 @@
 import pathlib
+from hex_text_file import hex_text_file
 
-
-class mot_record:
-	class record_offset:
+class record_type:
+	class offset:
 		byte_count = 0			# バイトカウント開始位置
 		addr_offset_begin = 1	# ロードアドレス開始位置
 								# ロードアドレス終了位置(可変)
@@ -35,12 +35,12 @@ class mot_record:
 		# 解析
 		self._analyze(record)
 
-	def _analyze(self, record: str):
-		record_offset = mot_record.record_offset
+	def _analyze(self, record_str: str):
+		record_offset = record_type.offset
 		# レコードタイプ取得
-		self.record_type = self._analyze_record_type(record[0:2])
+		self.record_type = self._analyze_record_type(record_str[0:2])
 		# 生bytes
-		self.record_raw = bytes.fromhex(record[2:])
+		self.record_raw = bytes.fromhex(record_str[2:])
 		# 固定長データ抽出
 		self.byte_count = self.record_raw[record_offset.byte_count]
 		# 各種レコード位置を作成
@@ -61,9 +61,9 @@ class mot_record:
 			self.enable = True
 
 	def _make_record_pos(self):
-		record_offset = mot_record.record_offset
+		record_offset = record_type.offset
 		# アドレス長
-		self.addr_len = mot_record.record_size_tbl[self.record_type]
+		self.addr_len = record_type.record_size_tbl[self.record_type]
 		# データサイズ
 		self.data_len = self.byte_count - self.addr_len - 1
 		# データ開始位置
@@ -76,7 +76,7 @@ class mot_record:
 		return int(record[1])
 
 
-class mot:
+class mot(hex_text_file):
 	def __init__(self, file_path: pathlib.Path) -> None:
 		self.file_path = file_path
 		self.record_dict = {}
@@ -115,34 +115,34 @@ class mot:
 		#
 		for line in lines:
 			# レコード情報を作成
-			record = mot_record(line)
+			data = record_type(line)
 			# 有効チェック
-			if not record.enable:
+			if not data.enable:
 				raise Exception("invalid hex file!")
 			#
-			self._analyze_tbl[record.record_type](record)
+			self._analyze_tbl[data.record_type](data)
 			#
 
-	def _analyze_S0_record(self, record: mot_record):
+	def _analyze_S0_record(self, record: record_type):
 		# データレコード
 		self.filename = record.data.decode("utf-8")
 
-	def _analyze_S1_record(self, record: mot_record):
+	def _analyze_S1_record(self, record: record_type):
 		# データレコード
 		self._analyze_curr_address(record)
 		self.record_dict[self._address] = record
 
-	def _analyze_S2_record(self, record: mot_record):
+	def _analyze_S2_record(self, record: record_type):
 		# データレコード
 		self._analyze_curr_address(record)
 		self.record_dict[self._address] = record
 
-	def _analyze_S3_record(self, record: mot_record):
+	def _analyze_S3_record(self, record: record_type):
 		# データレコード
 		self._analyze_curr_address(record)
 		self.record_dict[self._address] = record
 
-	def _analyze_curr_address(self, record: mot_record):
+	def _analyze_curr_address(self, record: record_type):
 		"""
 		recordの開始アドレスを作成して返す
 		同時に読み込み済みデータ内の最大／最小アドレスも計算する
@@ -164,62 +164,17 @@ class mot:
 			if self._address_end < self._address + data_len:
 				self._address_end = self._address + data_len
 
-	def _analyze_S7_record(self, record: mot_record):
+	def _analyze_S7_record(self, record: record_type):
 		# エンドレコード
 		self._S3_end = True
 
-	def _analyze_S8_record(self, record: mot_record):
+	def _analyze_S8_record(self, record: record_type):
 		# エンドレコード
 		self._S2_end = True
 
-	def _analyze_S9_record(self, record: mot_record):
+	def _analyze_S9_record(self, record: record_type):
 		# エンドレコード
 		self._S1_end = True
-
-	def checksum(self, blank: int = 0xFF, twos_compl: bool = True, addr_begin: int = None, addr_end: int = None) -> int:
-		#
-		if addr_begin is None:
-			addr_begin = self._address_begin
-		if addr_end is None:
-			addr_end = self._address_end
-		# データ総和計算
-		data_sum = self._checksum_sum(blank, addr_begin, addr_end)
-		# チェックサム計算
-		if twos_compl:
-			data_sum = (-data_sum & 0xFF)
-		#
-		return data_sum
-
-	def _checksum_sum(self, blank: int, addr_begin: int, addr_end: int) -> int:
-		# メモリ空間を作成する
-		# blankで埋めて初期化
-		addr_max = addr_end - addr_begin + 1
-		mem = [blank] * addr_max
-		# 保持しているレコードを展開
-		for addr, record in self.record_dict.items():
-			# record.data使用範囲
-			use_data_begin = 0
-			use_data_end = len(record.data)
-			# 相対アドレス作成
-			rel_addr_begin = addr - addr_begin
-			rel_addr_end = rel_addr_begin + record.byte_count
-			# アドレス範囲チェック
-			if rel_addr_begin < 0:
-				use_data_begin = rel_addr_begin * -1
-				rel_addr_begin = 0
-			if rel_addr_end > addr_max:
-				use_data_end -= rel_addr_end - addr_max
-				rel_addr_end = addr_max
-			# レコードデータのリストを作成
-			mem_record = [data for data in record.data[use_data_begin:use_data_end]]
-			# メモリ空間に展開
-			mem[rel_addr_begin:rel_addr_end] = mem_record
-		# メモリ空間の総和計算
-		data_sum = 0
-		for data in mem:
-			data_sum += data
-		return data_sum
-
 
 
 

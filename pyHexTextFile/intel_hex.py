@@ -1,9 +1,10 @@
 import pathlib
+from hex_text_file import hex_text_file
 
 # http://tool-support.renesas.com/autoupdate/support/onlinehelp/ja-JP/csp/V8.04.00/CS+.chm/Compiler-CCRX.chm/Output/ccrx03c0400y.html
 
-class hex_record:
-	class record_offset:
+class record_type:
+	class offset:
 		byte_count = 0			# バイトカウント開始位置
 		addr_offset_begin = 1	# アドレスオフセット開始位置
 		addr_offset_end = 2		# アドレスオフセット終了位置
@@ -24,7 +25,7 @@ class hex_record:
 		self._analyze()
 
 	def _analyze(self):
-		record_offset = hex_record.record_offset
+		record_offset = record_type.offset
 		# 固定長データ抽出
 		self.byte_count = self.record_raw[record_offset.byte_count]
 		self.addr_offset = int.from_bytes(self.record_raw[record_offset.addr_offset_begin:record_offset.addr_offset_end+1], 'big')
@@ -43,7 +44,8 @@ class hex_record:
 		if self.checksum == sum:
 			self.enable = True
 
-class hex:
+
+class intel_hex(hex_text_file):
 	def __init__(self, file_path: pathlib.Path) -> None:
 		self.hex_file_path = file_path
 		self.record_dict = {}
@@ -78,12 +80,12 @@ class hex:
 			# 先頭の:を除いてbytesに変換
 			byte = bytes.fromhex(line[1:])
 			# hexレコード情報を作成
-			record = hex_record(byte)
+			data = record_type(byte)
 			# 有効チェック
-			if not record.enable:
+			if not data.enable:
 				raise Exception("invalid hex file!")
 			#
-			self._analyze_tbl[record.record_type](record)
+			self._analyze_tbl[data.record_type](data)
 			#
 			if self._end:
 				break
@@ -91,12 +93,12 @@ class hex:
 		if not self._end:
 			print("finish without end record.")
 
-	def _analyze_00_record(self, record: hex_record):
+	def _analyze_00_record(self, record: record_type):
 		# データレコード
 		self._analyze_curr_address(record)
 		self.record_dict[self._address] = record
 
-	def _analyze_curr_address(self, record: hex_record):
+	def _analyze_curr_address(self, record: record_type):
 		"""
 		recordの開始アドレスを作成して返す
 		同時に読み込み済みデータ内の最大／最小アドレスも計算する
@@ -124,78 +126,34 @@ class hex:
 			if self._address_end < self._address + data_len:
 				self._address_end = self._address + data_len
 
-	def _analyze_01_record(self, record: hex_record):
+	def _analyze_01_record(self, record: record_type):
 		# エンドレコード
 		self._end = True
 
-	def _analyze_02_record(self, record: hex_record):
+	def _analyze_02_record(self, record: record_type):
 		# 拡張セグメントアドレスレコード
 		self._ext_segment_addr = int.from_bytes(record.data, 'big') * (2 ** 4)
 		# リニアアドレスは無効化
 		self._ext_linear_addr = None
 
-	def _analyze_03_record(self, record: hex_record):
+	def _analyze_03_record(self, record: record_type):
 		self.reg_CS = int.from_bytes(record.data[0:2], 'big')
 		self.reg_IP = int.from_bytes(record.data[2:4], 'big')
 
-	def _analyze_04_record(self, record: hex_record):
+	def _analyze_04_record(self, record: record_type):
 		# 拡張リニアアドレスレコード
 		self._ext_linear_addr = int.from_bytes(record.data, 'big') * (2 ** 16)
 		# セグメントアドレスは無効化
 		self._ext_segment_addr = None
 
-	def _analyze_05_record(self, record: hex_record):
+	def _analyze_05_record(self, record: record_type):
 		self.reg_EIP = int.from_bytes(record.data[0:4], 'big')
-
-	def checksum(self, blank:int = 0xFF, twos_compl:bool = True, addr_begin:int=None, addr_end:int=None) -> int:
-		#
-		if addr_begin is None:
-			addr_begin = self._address_begin
-		if addr_end is None:
-			addr_end = self._address_end
-		# データ総和計算
-		data_sum = self._checksum_sum(blank, addr_begin, addr_end)
-		# チェックサム計算
-		if twos_compl:
-			data_sum = (-data_sum & 0xFF)
-		#
-		return data_sum
-
-	def _checksum_sum(self, blank: int, addr_begin: int, addr_end: int) -> int:
-		# メモリ空間を作成する
-		# blankで埋めて初期化
-		addr_max = addr_end - addr_begin + 1
-		mem = [blank] * addr_max
-		# 保持しているレコードを展開
-		for addr, record in self.record_dict.items():
-			# record.data使用範囲
-			use_data_begin = 0
-			use_data_end = len(record.data)
-			# 相対アドレス作成
-			rel_addr_begin = addr - addr_begin
-			rel_addr_end = rel_addr_begin + record.byte_count
-			# アドレス範囲チェック
-			if rel_addr_begin < 0:
-				use_data_begin = rel_addr_begin * -1
-				rel_addr_begin = 0
-			if rel_addr_end > addr_max:
-				use_data_end -= rel_addr_end - addr_max
-				rel_addr_end = addr_max
-			# レコードデータのリストを作成
-			mem_record = [data for data in record.data[use_data_begin:use_data_end]]
-			# メモリ空間に展開
-			mem[rel_addr_begin:rel_addr_end] = mem_record
-		# メモリ空間の総和計算
-		data_sum = 0
-		for data in mem:
-			data_sum += data
-		return data_sum
 
 
 
 
 if __name__ == "__main__":
 	path = r"./test_obj/abs_test.hex"
-	binary = hex(pathlib.Path(path))
+	binary = intel_hex(pathlib.Path(path))
 	checksum = binary.checksum(0xFF, True, None, 0x7FFFE)
 	print(f'checksum: 0x{checksum:02X}')
