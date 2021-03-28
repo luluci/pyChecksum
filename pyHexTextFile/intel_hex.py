@@ -154,6 +154,6 @@ class intel_hex(hex_text_file):
 
 if __name__ == "__main__":
 	path = r"./test_obj/abs_test.hex"
-	binary = intel_hex(pathlib.Path(path))
-	checksum = binary.checksum(0xFF, True, None, 0x7FFFE)
+	hex_file = intel_hex(pathlib.Path(path))
+	checksum = hex_file.checksum(0xFF, True, None, 0x7FFFE)
 	print(f'checksum: 0x{checksum:02X}')

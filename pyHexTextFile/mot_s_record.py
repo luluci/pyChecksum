@@ -76,7 +76,7 @@ class record_type:
 		return int(record[1])
 
 
-class mot(hex_text_file):
+class mot_s_record(hex_text_file):
 	def __init__(self, file_path: pathlib.Path) -> None:
 		self.file_path = file_path
 		self.record_dict = {}
@@ -180,6 +180,6 @@ class mot(hex_text_file):
 
 if __name__ == "__main__":
 	path = r"./test_obj/abs_test.mot"
-	binary = mot(pathlib.Path(path))
-	checksum = binary.checksum()
+	hex_file = mot_s_record(pathlib.Path(path))
+	checksum = hex_file.checksum()
 	print(f'checksum: 0x{checksum:02X}')
