@@ -18,7 +18,9 @@ class hex_text_file:
 		data_sum = self._checksum_sum(blank, addr_begin, addr_end)
 		# チェックサム計算
 		if twos_compl:
-			data_sum = (-data_sum & 0xFF)
+			data_sum = -data_sum & 0xFFFFFFFF
+		else:
+			data_sum = data_sum & 0xFFFFFFFF
 		#
 		return data_sum
 
