@@ -31,10 +31,10 @@ class hex_text_file:
 		for addr, record in self.record_dict.items():
 			# record.data使用範囲
 			use_data_begin = 0
-			use_data_end = len(record.data)
+			use_data_end = record.data_len
 			# 相対アドレス作成
 			rel_addr_begin = addr - addr_begin
-			rel_addr_end = rel_addr_begin + record.byte_count
+			rel_addr_end = rel_addr_begin + record.data_len
 			# アドレス範囲チェック
 			if rel_addr_begin < 0:
 				use_data_begin = rel_addr_begin * -1

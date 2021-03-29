@@ -20,6 +20,7 @@ class record_type:
 		self.addr_offset: int = None
 		self.record_type: int = None
 		self.data: bytes = None
+		self.data_len: int = None
 		self.checksum: int = None
 		# 解析
 		self._analyze()
@@ -33,13 +34,14 @@ class record_type:
 		# データ抽出
 		if self.byte_count != 0:
 			self.data = self.record_raw[record_offset.data:record_offset.data+self.byte_count]
+			self.data_len = len(self.data)
 		# チェックサム抽出
 		self.checksum = self.record_raw[record_offset.data+self.byte_count]
 		# チェックサム計算
 		sum = 0
 		for byte in self.record_raw[record_offset.byte_count:record_offset.data+self.byte_count]:
 			sum += byte
-		sum = ((sum & 0xFF) ^ 0xFF) + 1
+		sum = ((sum ^ 0xFF) + 1) & 0xFF
 		# チェックサムチェック
 		if self.checksum == sum:
 			self.enable = True

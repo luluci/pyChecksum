@@ -31,6 +31,7 @@ class record_type:
 		self.addr: int = None
 		self.addr_len: int = None
 		self.data: bytes = None
+		self.data_len: int = None
 		self.checksum: int = None
 		# 解析
 		self._analyze(record)
