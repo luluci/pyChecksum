@@ -2,6 +2,8 @@ import os
 import sys
 import pathlib
 import re
+from typing import NamedTuple, Dict
+import enum
 
 from PySimpleGUI.PySimpleGUI import VerticalSeparator
 
@@ -12,9 +14,43 @@ from PySimpleGUIHelper import PySimpleGUIHelper as sg_helper
 from pyHexTextFile.intel_hex import intel_hex
 from pyHexTextFile.mot_s_record import mot_s_record
 
+"""
+グローバル変数
+"""
+hex_file_info = None
+checksum_blank = "FF"
+checksum_twos_compl = True
+
+class twos_compl_select(enum.Enum):
+	enable = enum.auto()
+	disable = enum.auto()
+	both = enum.auto()
+
+class checksum_preset_type(NamedTuple):
+	blank: int = 0xFF
+	twos_compl: twos_compl_select = twos_compl_select.enable
+	addr_begin: int = 0
+	addr_end: int = 0
+
+checksum_preset: Dict[str, checksum_preset_type] = {
+	"preset1": checksum_preset_type(0xFF, twos_compl_select.both, 0x00000000, 0x0000FFFF),
+	"preset2": checksum_preset_type(0xFF, twos_compl_select.enable, 0x00003000, 0x0007FFFF),
+}
+
+
+"""
+GUIデータ作成
+"""
+checksum_preset_list = [k for k in checksum_preset.keys()]
+checksum_preset_size = (30, len(checksum_preset_list))
+
 font_log = ('Consolas', 10)
 font_wnd = ('Meiryo UI', 10)
 
+
+"""
+GUIレイアウト定義
+"""
 layout_input = [
 	[
 		sg.Text('HEX File:'), sg.Input('', key='inp_hex_file'), sg.FileBrowse(),
@@ -50,6 +86,10 @@ layout_checksum_addr_range = [
 ]
 layout_checksum = [
 	[
+		sg.Text('calc settings preset:'),
+		sg.Combo(checksum_preset_list, size=checksum_preset_size, key='cmb_checksum_preset', enable_events=True)
+	],
+	[
 		sg.Frame('Blank', layout_checksum_blank),
 		sg.Frame('2の補数', layout_checksum_twos_compl),
 		sg.Frame('計算範囲', layout_checksum_addr_range),
@@ -80,13 +120,6 @@ def dad_inp_hex_file(dn: str):
 adapt_dad_inp_hex_file = sg_helper.adapt_dad(window["inp_hex_file"], dad_inp_hex_file)
 
 
-
-"""
-グローバル変数
-"""
-hex_file_info = None
-checksum_blank = "FF"
-checksum_twos_compl = True
 
 """
 関数
@@ -121,8 +154,33 @@ def read_file(values):
 	window['inp_checksum_addr_end'].update(value=f'{addr_end_adjust:08X}')
 
 
+def setting_checksum(values):
+	# preset取得
+	key = values['cmb_checksum_preset']
+	if key not in checksum_preset.keys():
+		# 無効値なら終了
+		return
+	preset = checksum_preset[key]
+	# preset展開
+	# blank
+	window['inp_checksum_blank'].update(value=f'{preset.blank:02X}')
+	# twos_compl
+	if preset.twos_compl == twos_compl_select.enable:
+		window['radio_twos_enable'].update(value=True)
+	elif preset.twos_compl == twos_compl_select.disable:
+		window['radio_twos_disable'].update(value=True)
+	elif preset.twos_compl == twos_compl_select.both:
+		window['radio_twos_both'].update(value=True)
+	# address
+	window['inp_checksum_addr_begin'].update(value=f'{preset.addr_begin:08X}')
+	window['inp_checksum_addr_end'].update(value=f'{preset.addr_end:08X}')
+
+
 def calc_checksum(values):
 	global hex_file_info
+	# 
+	if hex_file_info is None:
+		return
 	# GUIから情報取得
 	blank_str = values["inp_checksum_blank"]
 	addr_begin_str = values["inp_checksum_addr_begin"]
@@ -163,6 +221,8 @@ while True:
 
 	if event == 'btn_hex_read':
 		read_file(values)
+	elif event == 'cmb_checksum_preset':
+		setting_checksum(values)
 	elif event == 'btn_checksum_calc':
 		calc_checksum(values)
 	elif event is None:
