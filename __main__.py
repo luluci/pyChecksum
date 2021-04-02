@@ -32,7 +32,9 @@ class checksum_preset_type(NamedTuple):
 	addr_begin: int = 0
 	addr_end: int = 0
 
+
 checksum_preset: Dict[str, checksum_preset_type] = {
+	"<default>": checksum_preset_type(None, twos_compl_select.enable, None, None),
 	"preset1": checksum_preset_type(0xFF, twos_compl_select.both, 0x00000000, 0x0000FFFF),
 	"preset2": checksum_preset_type(0xFF, twos_compl_select.enable, 0x00003000, 0x0007FFFF),
 }
@@ -155,6 +157,9 @@ def read_file(values):
 
 
 def setting_checksum(values):
+	global checksum_blank
+	global hex_file_info
+
 	# preset取得
 	key = values['cmb_checksum_preset']
 	if key not in checksum_preset.keys():
@@ -163,7 +168,10 @@ def setting_checksum(values):
 	preset = checksum_preset[key]
 	# preset展開
 	# blank
-	window['inp_checksum_blank'].update(value=f'{preset.blank:02X}')
+	blank = preset.blank
+	if blank is None:
+		blank = int(checksum_blank, 16)
+	window['inp_checksum_blank'].update(value=f'{blank:02X}')
 	# twos_compl
 	if preset.twos_compl == twos_compl_select.enable:
 		window['radio_twos_enable'].update(value=True)
@@ -172,8 +180,20 @@ def setting_checksum(values):
 	elif preset.twos_compl == twos_compl_select.both:
 		window['radio_twos_both'].update(value=True)
 	# address
-	window['inp_checksum_addr_begin'].update(value=f'{preset.addr_begin:08X}')
-	window['inp_checksum_addr_end'].update(value=f'{preset.addr_end:08X}')
+	addr_begin = preset.addr_begin
+	if addr_begin is None:
+		if hex_file_info is not None:
+			addr_begin = hex_file_info._address_begin
+		else:
+			addr_begin = 0
+	addr_end = preset.addr_end
+	if addr_end is None:
+		if hex_file_info is not None:
+			addr_end = hex_file_info._address_end
+		else:
+			addr_end = 0
+	window['inp_checksum_addr_begin'].update(value=f'{addr_begin:08X}')
+	window['inp_checksum_addr_end'].update(value=f'{addr_end:08X}')
 
 
 def calc_checksum(values):
